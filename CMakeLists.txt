@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 2.6)
 project (DLR)
 MESSAGE( STATUS "PROJECT_NAME: " ${PROJECT_NAME} )
 
+option(ENABLE_OPENCV "Build with OpenCV" OFF)
+MESSAGE(STATUS "Build with OpenCV: ${ENABLE_OPENCV}")
 
 # Check platforms
 if (CMAKE_HOST_WIN32)
@@ -32,12 +34,24 @@ endif()
 include_directories("${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}/include/")
 
 # Add the executable
-add_executable(LabelRecognition LabelRecognitionDemo.cpp)
-if(WINDOWS)
-    target_link_libraries (LabelRecognition "DynamsoftLabelRecognitionx64")
+if (ENABLE_OPENCV)
+    find_package(OpenCV REQUIRED)
+    add_executable(LabelRecognition LabelRecognitionDemoOpenCV.cpp)
+    if(WINDOWS)
+        target_link_libraries (LabelRecognition "DynamsoftLabelRecognitionx64" ${OpenCV_LIBS})
+    else()
+        target_link_libraries (LabelRecognition "DynamsoftLabelRecognition" ${OpenCV_LIBS})
+    endif()
 else()
-    target_link_libraries (LabelRecognition "DynamsoftLabelRecognition")
+    add_executable(LabelRecognition LabelRecognitionDemo.cpp)
+    if(WINDOWS)
+        target_link_libraries (LabelRecognition "DynamsoftLabelRecognitionx64")
+    else()
+        target_link_libraries (LabelRecognition "DynamsoftLabelRecognition")
+    endif()
 endif()
+
+
 
 if(WINDOWS)
     add_custom_command(TARGET LabelRecognition POST_BUILD 

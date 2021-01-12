@@ -8,6 +8,16 @@ DLR ([Dynamsoft Label Recognition](https://www.dynamsoft.com/label-recognition/o
 - [Visual Studio](https://www.visualstudio.com/downloads/)
 - [CMake](https://cmake.org/download/)
 - [Dynamsoft Label Recognition 1.0 Beta](https://www.dynamsoft.com/label-recognition/downloads)
+- [OpenCV 4.5.0](https://opencv.org/releases/)
+
+    Configuration for CMake:
+
+    ```
+    # Find OpenCV, you may need to set OpenCV_DIR variable
+    # to the absolute path to the directory containing OpenCVConfig.cmake file
+    # via the command line or GUI
+    find_package(OpenCV REQUIRED)
+    ```
 
 ## License
 Get a [free trial license](https://www.dynamsoft.com/customer/license/trialLicense) and save it to `license.txt`.
@@ -16,7 +26,7 @@ Get a [free trial license](https://www.dynamsoft.com/customer/license/trialLicen
 https://www.dynamsoft.com/Company/Contact.aspx
 
 ## Windows
-1. Copy *.lib files to platforms\win\lib and copy *.dll files to platforms\win\bin folder.
+1. Copy `*.lib` files to `platforms/win/lib` folder and copy `*.dll` files to `platforms/win/bin` folder.
 
 2. Create a build folder:
 
@@ -25,23 +35,28 @@ https://www.dynamsoft.com/Company/Contact.aspx
     cd build
     ```
 
-3. Configure and build the project:
+3. Configure the project.
+
+    - Command-line app
+
+        ```
+        cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
+        ```
+
+    - GUI App with OpenCV
+
+        ```
+        cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DENABLE_OPENCV=TRUE ..
+        ```
+
+4. Build and run the app:
 
     ```
-    // x86
-    cmake -DCMAKE_GENERATOR_PLATFORM=x86 ..
-
-    // x64
-    cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
-
     cmake --build . --config release
-    ```
-
-4. Run the app:
-
-    ```
     Release\BarcodeReader license.txt
     ```
+
+    ![label recognition OCR](screenshots/label-recognition-ocr.png)
 
 ## Linux
 1. Install CMake:
@@ -50,7 +65,7 @@ https://www.dynamsoft.com/Company/Contact.aspx
     sudo apt-get install cmake
     ```
 
-2. Copy *.so files to platforms\linux.
+2. Copy `*.so` files to `platforms/linux` folder.
 3. Create a build folder:
     
     ```
@@ -58,15 +73,23 @@ https://www.dynamsoft.com/Company/Contact.aspx
     cd build
     ```
 
-4. Configure and build the project:
+4. Configure the project.
+
+    - Command-line app
+
+        ```
+        cmake ..
+        ```
+
+    - GUI App with OpenCV
+
+        ```
+        cmake -DENABLE_OPENCV=TRUE ..
+        ```
+
+5. Build and run the app:
 
     ```
-    cmake ..
-    cmake --build . --config release 
-    ```
-
-5. Run the app:
-
-    ```
+    cmake --build . --config release
     Release\BarcodeReader license.txt
     ```
