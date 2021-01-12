@@ -24,7 +24,14 @@ using namespace std;
 using namespace dynamsoft::dlr;
 using namespace cv;
 
-char* read_file_text(const char* filename) {
+Mat img;
+Rect region(0,0,0,0);
+Point startPoint(0,0), endPoint(0,0);
+const char* windowName = "Dynamsoft Label Recognition";
+bool clicked = false;
+CLabelRecognition dlr;
+
+char* readTextFile(const char* filename) {
 	FILE *fp = fopen(filename, "r"); 
     size_t size;
     char *text = NULL;
@@ -149,99 +156,6 @@ bool GetIfAutoDetectRegion(bool& autoRegion)
 	return bExit;
 }
 
-bool GetRegion(tagDLRPoint* region)
-{
-	char pszBuffer[512] = { 0 };
-	bool bExit = false;
-	size_t iLen = 0;
-	FILE* fp = NULL;
-	char nums[512] = { 0 };
-	while (1)
-	{
-		printf(">> Step 3: Set Set four points (in pixel, seperated by comma) of your region:\r\n");
-		int numCount = 0;
-
-		char strPoints[4][10] = { "first", "second", "third", "fourth" };
-
-		int m = 0;
-		for (; m < 4;++m)
-		{
-			printf(">>>> Set the %s point of your region (e.g: (0,0)):", strPoints[m]);
-#if defined(_WIN32) || defined(_WIN64)
-			gets_s(pszBuffer, 512);
-#else
-			fgets(pszBuffer, 512, stdin);
-			strtok(pszBuffer, "\n");
-#endif
-			iLen = strlen(pszBuffer);
-			if (iLen > 0)
-			{
-				if (strlen(pszBuffer) == 1 && (pszBuffer[0] == 'q' || pszBuffer[0] == 'Q'))
-				{
-					bExit = true;
-					break;
-				}
-				int n = 0;
-				char temp[512] = "";
-				for (int i = 0; i < iLen; ++i)
-				{
-					if (pszBuffer[i] != ' ')
-					{
-						temp[n] = pszBuffer[i];
-						++n;
-					}
-				}
-				if (temp[0] == '(' && temp[n - 1] == ')')
-				{
-					memcpy(nums, &temp[1], n - 2);
-					nums[n - 2] = '\0';
-					int num = 0;
-					int flag = 0;
-					for (int i = 0; i < n - 2; ++i)
-					{
-						if (nums[i] == ',')
-						{
-							region[m].x = num;
-							num = 0;
-							continue;
-						}
-						if (nums[i] > '9' || nums[i] < '0')
-						{
-							flag = 1;
-							break;
-						}
-						num = num * 10 + (nums[i] - '0');
-						if(i == n-3)
-							region[m].y = num;
-					}
-					if (flag)
-					{
-						printf("Please input a valid value.");
-						--m;
-						continue;
-					}
-				}
-				else
-				{
-					printf("Please input a valid value.");
-					--m;
-					continue;
-				}
-
-			}
-		}
-		if (m == 4)
-		{
-			break;
-		}
-		if (bExit)
-		{
-			break;
-		}
-	}
-	return bExit;
-}
-
 bool SetDetectRegion(CLabelRecognition& dlr, tagDLRPoint* region, char* errorMsg, int errorMsgLen)
 {
 	bool bError = false;
@@ -263,21 +177,21 @@ bool SetDetectRegion(CLabelRecognition& dlr, tagDLRPoint* region, char* errorMsg
 
 void showImage(string windowName, Mat &img, double hScale, double wScale, int imgWidth, int imgHeight)
 {
-	if (hScale >= wScale && hScale > 1)
-	{
-		Mat newImage;
-		resize(img, newImage, Size(int(imgWidth / hScale), int(imgHeight / hScale)));
-		imshow(windowName, newImage);
-		imwrite(windowName + ".jpg", newImage);
-	}
-	else if (hScale <= wScale && wScale > 1)
-	{
-		Mat newImage;
-		resize(img, newImage, Size(int(imgWidth / wScale), int(imgHeight / wScale)));
-		imshow(windowName, newImage);
-		imwrite(windowName + ".jpg", newImage);
-	}
-	else 
+	// if (hScale >= wScale && hScale > 1)
+	// {
+	// 	Mat newImage;
+	// 	resize(img, newImage, Size(int(imgWidth / hScale), int(imgHeight / hScale)));
+	// 	imshow(windowName, newImage);
+	// 	imwrite(windowName + ".jpg", newImage);
+	// }
+	// else if (hScale <= wScale && wScale > 1)
+	// {
+	// 	Mat newImage;
+	// 	resize(img, newImage, Size(int(imgWidth / wScale), int(imgHeight / wScale)));
+	// 	imshow(windowName, newImage);
+	// 	imwrite(windowName + ".jpg", newImage);
+	// }
+	// else 
 	{
 		imshow(windowName, img);
 		imwrite(windowName + ".jpg", img);
@@ -285,10 +199,137 @@ void showImage(string windowName, Mat &img, double hScale, double wScale, int im
 
 }
 
+void doOCR()
+{
+	double hScale = 1.0, wScale = 1.0;
+
+	int maxWidth = 800, maxHeight = 800, padding = 5;
+
+	float costTime = 0.0;
+	int errorCode = 0;
+
+	int imgHeight = img.rows, imgWidth = img.cols;
+	int thickness = 2;
+	Scalar color(0, 255, 0);
+
+	if (imgHeight > maxHeight) 
+	{
+		hScale = imgHeight * 1.0 / maxHeight;
+		// thickness = 6;
+	}
+		
+
+	if (imgWidth > maxWidth)
+	{
+		wScale = imgWidth * 1.0 / maxWidth;
+		// thickness = 6;
+	}
+
+	DLRImageData data = {img.step.p[0] * imgHeight, img.data, imgWidth, imgHeight, img.step.p[0], DLR_IPF_RGB_888};
+	TickMeter tm;
+	tm.start();
+	errorCode = dlr.RecognizeByBuffer(&data, "");
+	tm.stop();
+	costTime = tm.getTimeSec();
+
+	if (errorCode != DLR_OK)
+		printf("\r\nFailed to recognize label : %s\r\n", dlr.GetErrorString(errorCode));
+	else
+	{
+		DLRResultArray* pDLRResults = NULL;
+		dlr.GetAllDLRResults(&pDLRResults);
+		if (pDLRResults != NULL)
+		{
+			int rCount = pDLRResults->resultsCount;
+			printf("\r\nRecognized %d results\r\n", rCount);
+			for (int ri = 0; ri < rCount; ++ri)
+			{
+				printf("\r\Result %d :\r\n", ri);
+				DLRResult* result = pDLRResults->results[ri];
+				int lCount = result->lineResultsCount;
+				for (int li = 0; li < lCount; ++li)
+				{
+					printf("Line result %d: %s\r\n", li, result->lineResults[li]->text);
+					DLRPoint *points = result->lineResults[li]->location.points;
+					printf("x1: %d, y1: %d, x2: %d, y2: %d, x3: %d, y3: %d, x4: %d, y4: %d\r\n", points[0].x, 
+					points[0].y, points[1].x, points[1].y, points[2].x, points[2].y, points[3].x, points[3].y);
+					int x1 = points[0].x, y1 = points[0].y;
+					int minX = x1, minY = y1;
+					int x2 = points[1].x, y2 = points[1].y;
+					minX = minX < x2 ? minX : x2;
+					minY = minY < y2 ? minY : y2;
+					int x3 = points[2].x, y3 = points[2].y;
+					minX = minX < x3 ? minX : x3;
+					minY = minY < y3 ? minY : y3;
+					int x4 = points[3].x, y4 = points[3].y;
+					minX = minX < x4 ? minX : x4;
+					minY = minY < y4 ? minY : y4;
+					line( img, Point(x1, y1), Point(x2, y2), cv::Scalar(255, 0, 0), thickness);
+					line( img, Point(x2, y2), Point(x3, y3), cv::Scalar(255, 0, 0), thickness);
+					line( img, Point(x3, y3), Point(x4, y4), cv::Scalar(255, 0, 0), thickness);
+					line( img, Point(x4, y4), Point(x1, y1), cv::Scalar(255, 0, 0), thickness);
+					putText(img, result->lineResults[li]->text, Point(minX, minY - 10), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 0, 255), 1, LINE_AA);
+				}
+			}
+		}
+		else
+		{
+			printf("\r\nNo data detected.\r\n");
+		}
+		dlr.FreeDLRResults(&pDLRResults);
+	}
+
+	printf("\r\nTotal time spent: %.3f s\r\n", time);
+
+	showImage(windowName, img, hScale, wScale, imgWidth, imgHeight);
+}
+
 void destroyWindow()
 {
 	waitKey(0);
 	destroyAllWindows();
+}
+
+void drawRegion()
+{
+	Mat tmp = img.clone();
+	int x = startPoint.x, y = startPoint.y, width = endPoint.x - startPoint.x, height = endPoint.y - startPoint.y;
+	// printf("draw x: %d, y:%d, width: %d, height: %d \n", x, y, width, height);
+	rectangle(tmp, Rect(x, y, width, height), Scalar(0,255,0), 2);
+    imshow(windowName, tmp);
+}
+
+void doRegionDetection()
+{
+	char szErrorMsg[512];
+	tagDLRPoint region[4] = { {startPoint.x, startPoint.y},{endPoint.x, startPoint.y},{endPoint.x, endPoint.y},{startPoint.x, endPoint.y} };
+	if (SetDetectRegion(dlr, region, szErrorMsg, 512))
+	{
+		printf("\r\nSetDetectRegion Error: %s\r\n", szErrorMsg);
+	}
+
+	doOCR();
+}
+
+void onMouse(int event, int x, int y, int f, void* ){
+	switch(event) {
+		case EVENT_LBUTTONDOWN:
+		clicked = true;
+		startPoint.x = x, startPoint.y = y;
+		break;
+		case EVENT_LBUTTONUP:
+		clicked = false;
+		doRegionDetection();
+		break;
+		case EVENT_MOUSEMOVE:
+		endPoint.x = x, endPoint.y = y;
+		break;
+	}
+
+	if (clicked)
+	{
+		drawRegion();
+	}
 }
 
 int main(int argc, const char* argv[])
@@ -298,30 +339,24 @@ int main(int argc, const char* argv[])
         return 0;
 	}
 	
-	char* license = read_file_text(argv[1]);
+	char* license = readTextFile(argv[1]);
 
 	bool bExit = false;
 	char szErrorMsg[512];
 	char pszImageFile[512] = { 0 };
 	bool autoRegion = false;
 	tagDLRPoint region[4] = { {0,0},{100,0},{100,100},{0,100} };
-	const char* windowName = "Dynamsoft Label Recognition";
 
 	printf("*************************************************\r\n");
 	printf("Welcome to Dynamsoft Label Recognition Demo\r\n");
 	printf("*************************************************\r\n");
 	printf("Hints: Please input 'Q' or 'q' to quit the application.\r\n");
 
-	CLabelRecognition dlr;
 	int ret = dlr.InitLicense(license);
 	printf("License initialization: %d\n\n", ret);
 
-	int maxWidth = 800, maxHeight = 800, padding = 5;
-
 	while (1)
 	{
-		double hScale = 1.0, wScale = 1.0;
-
 		dlr.ResetRuntimeSettings();
 
 		bExit = GetImagePath(pszImageFile);
@@ -331,98 +366,21 @@ int main(int argc, const char* argv[])
 		bExit = GetIfAutoDetectRegion(autoRegion);
 		if (bExit)
 			break;
-		
-		if (!autoRegion)
-		{
-			bExit = GetRegion(region);
-			if (bExit)
-				break;
-
-			if (SetDetectRegion(dlr, region, szErrorMsg, 512))
-			{
-				printf("\r\nSetDetectRegion Error: %s\r\n", szErrorMsg);
-			}
-		}
-
-		float costTime = 0.0;
-		int errorCode = 0;
 
 		// Read an image
-		Mat img = imread(pszImageFile);
-		int imgHeight = img.rows, imgWidth = img.cols;
-		int thickness = 2;
-		Scalar color(0, 255, 0);
+		img = imread(pszImageFile);
+		// namedWindow(windowName, WINDOW_AUTOSIZE);
+		namedWindow(windowName);
+    	setMouseCallback(windowName, onMouse, NULL);
 
-		if (imgHeight > maxHeight) 
+		if (!autoRegion)
 		{
-			hScale = imgHeight * 1.0 / maxHeight;
-			thickness = 6;
+			imshow(windowName, img);
 		}
-			
-
-		if (imgWidth > maxWidth)
-		{
-			wScale = imgWidth * 1.0 / maxWidth;
-			thickness = 6;
+		else {
+			doOCR();
 		}
-
-		DLRImageData data = {img.step.p[0] * imgHeight, img.data, imgWidth, imgHeight, img.step.p[0], DLR_IPF_RGB_888};
-		TickMeter tm;
-		tm.start();
-		errorCode = dlr.RecognizeByBuffer(&data, "");
-		tm.stop();
-		costTime = tm.getTimeSec();
-
-		if (errorCode != DLR_OK)
-			printf("\r\nFailed to recognize label : %s\r\n", dlr.GetErrorString(errorCode));
-		else
-		{
-			DLRResultArray* pDLRResults = NULL;
-			dlr.GetAllDLRResults(&pDLRResults);
-			if (pDLRResults != NULL)
-			{
-				int rCount = pDLRResults->resultsCount;
-				printf("\r\nRecognized %d results\r\n", rCount);
-				for (int ri = 0; ri < rCount; ++ri)
-				{
-					printf("\r\Result %d :\r\n", ri);
-					DLRResult* result = pDLRResults->results[ri];
-					int lCount = result->lineResultsCount;
-					for (int li = 0; li < lCount; ++li)
-					{
-						printf("Line result %d: %s\r\n", li, result->lineResults[li]->text);
-						DLRPoint *points = result->lineResults[li]->location.points;
-						printf("x1: %d, y1: %d, x2: %d, y2: %d, x3: %d, y3: %d, x4: %d, y4: %d\r\n", points[0].x, 
-						points[0].y, points[1].x, points[1].y, points[2].x, points[2].y, points[3].x, points[3].y);
-						int x1 = points[0].x, y1 = points[0].y;
-						int minX = x1, minY = y1;
-						int x2 = points[1].x, y2 = points[1].y;
-						minX = minX < x2 ? minX : x2;
-						minY = minY < y2 ? minY : y2;
-						int x3 = points[2].x, y3 = points[2].y;
-						minX = minX < x3 ? minX : x3;
-						minY = minY < y3 ? minY : y3;
-						int x4 = points[3].x, y4 = points[3].y;
-						minX = minX < x4 ? minX : x4;
-						minY = minY < y4 ? minY : y4;
-						line( img, Point(x1, y1), Point(x2, y2), cv::Scalar(255, 0, 0), thickness);
-						line( img, Point(x2, y2), Point(x3, y3), cv::Scalar(255, 0, 0), thickness);
-						line( img, Point(x3, y3), Point(x4, y4), cv::Scalar(255, 0, 0), thickness);
-						line( img, Point(x4, y4), Point(x1, y1), cv::Scalar(255, 0, 0), thickness);
-						putText(img, result->lineResults[li]->text, Point(minX, minY - 10), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 0, 255), 1, LINE_AA);
-					}
-				}
-			}
-			else
-			{
-				printf("\r\nNo data detected.\r\n");
-			}
-			dlr.FreeDLRResults(&pDLRResults);
-		}
-
-		printf("\r\nTotal time spent: %.3f s\r\n", time);
-
-		showImage(windowName, img, hScale, wScale, imgWidth, imgHeight);
+		
 		destroyWindow();
 	}
 
