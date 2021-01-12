@@ -24,12 +24,14 @@ using namespace std;
 using namespace dynamsoft::dlr;
 using namespace cv;
 
-Mat img;
+Mat ori, current;
 Rect region(0,0,0,0);
 Point startPoint(0,0), endPoint(0,0);
 const char* windowName = "Dynamsoft Label Recognition";
 bool clicked = false;
 CLabelRecognition dlr;
+int maxHeight = 1200, maxWidth = 1200;
+double hScale = 1.0, wScale = 1.0;
 
 char* readTextFile(const char* filename) {
 	FILE *fp = fopen(filename, "r"); 
@@ -175,23 +177,23 @@ bool SetDetectRegion(CLabelRecognition& dlr, tagDLRPoint* region, char* errorMsg
 }
 
 
-void showImage(string windowName, Mat &img, double hScale, double wScale, int imgWidth, int imgHeight)
+void showImage(string windowName, Mat &img)
 {
-	// if (hScale >= wScale && hScale > 1)
-	// {
-	// 	Mat newImage;
-	// 	resize(img, newImage, Size(int(imgWidth / hScale), int(imgHeight / hScale)));
-	// 	imshow(windowName, newImage);
-	// 	imwrite(windowName + ".jpg", newImage);
-	// }
-	// else if (hScale <= wScale && wScale > 1)
-	// {
-	// 	Mat newImage;
-	// 	resize(img, newImage, Size(int(imgWidth / wScale), int(imgHeight / wScale)));
-	// 	imshow(windowName, newImage);
-	// 	imwrite(windowName + ".jpg", newImage);
-	// }
-	// else 
+	int imgHeight = ori.rows, imgWidth = ori.cols;
+
+	if (hScale >= wScale && hScale > 1)
+	{
+		resize(img, current, Size(int(imgWidth / hScale), int(imgHeight / hScale)));
+		imshow(windowName, current);
+		imwrite(windowName + ".jpg", current);
+	}
+	else if (hScale <= wScale && wScale > 1)
+	{
+		resize(img, current, Size(int(imgWidth / wScale), int(imgHeight / wScale)));
+		imshow(windowName, current);
+		imwrite(windowName + ".jpg", current);
+	}
+	else 
 	{
 		imshow(windowName, img);
 		imwrite(windowName + ".jpg", img);
@@ -201,31 +203,14 @@ void showImage(string windowName, Mat &img, double hScale, double wScale, int im
 
 void doOCR()
 {
-	double hScale = 1.0, wScale = 1.0;
-
-	int maxWidth = 800, maxHeight = 800, padding = 5;
-
 	float costTime = 0.0;
 	int errorCode = 0;
 
-	int imgHeight = img.rows, imgWidth = img.cols;
+	int imgHeight = ori.rows, imgWidth = ori.cols;
 	int thickness = 2;
 	Scalar color(0, 255, 0);
 
-	if (imgHeight > maxHeight) 
-	{
-		hScale = imgHeight * 1.0 / maxHeight;
-		// thickness = 6;
-	}
-		
-
-	if (imgWidth > maxWidth)
-	{
-		wScale = imgWidth * 1.0 / maxWidth;
-		// thickness = 6;
-	}
-
-	DLRImageData data = {img.step.p[0] * imgHeight, img.data, imgWidth, imgHeight, img.step.p[0], DLR_IPF_RGB_888};
+	DLRImageData data = {ori.step.p[0] * imgHeight, ori.data, imgWidth, imgHeight, ori.step.p[0], DLR_IPF_RGB_888};
 	TickMeter tm;
 	tm.start();
 	errorCode = dlr.RecognizeByBuffer(&data, "");
@@ -244,9 +229,10 @@ void doOCR()
 			printf("\r\nRecognized %d results\r\n", rCount);
 			for (int ri = 0; ri < rCount; ++ri)
 			{
-				printf("\r\Result %d :\r\n", ri);
+				printf("\rResult %d :\r\n", ri);
 				DLRResult* result = pDLRResults->results[ri];
 				int lCount = result->lineResultsCount;
+
 				for (int li = 0; li < lCount; ++li)
 				{
 					printf("Line result %d: %s\r\n", li, result->lineResults[li]->text);
@@ -264,11 +250,11 @@ void doOCR()
 					int x4 = points[3].x, y4 = points[3].y;
 					minX = minX < x4 ? minX : x4;
 					minY = minY < y4 ? minY : y4;
-					line( img, Point(x1, y1), Point(x2, y2), cv::Scalar(255, 0, 0), thickness);
-					line( img, Point(x2, y2), Point(x3, y3), cv::Scalar(255, 0, 0), thickness);
-					line( img, Point(x3, y3), Point(x4, y4), cv::Scalar(255, 0, 0), thickness);
-					line( img, Point(x4, y4), Point(x1, y1), cv::Scalar(255, 0, 0), thickness);
-					putText(img, result->lineResults[li]->text, Point(minX, minY - 10), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 0, 255), 1, LINE_AA);
+					line( ori, Point(x1, y1), Point(x2, y2), cv::Scalar(255, 0, 0), thickness);
+					line( ori, Point(x2, y2), Point(x3, y3), cv::Scalar(255, 0, 0), thickness);
+					line( ori, Point(x3, y3), Point(x4, y4), cv::Scalar(255, 0, 0), thickness);
+					line( ori, Point(x4, y4), Point(x1, y1), cv::Scalar(255, 0, 0), thickness);
+					putText(ori, result->lineResults[li]->text, Point(minX, minY - 10), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 0, 255), 1, LINE_AA);
 				}
 			}
 		}
@@ -281,7 +267,7 @@ void doOCR()
 
 	printf("\r\nTotal time spent: %.3f s\r\n", time);
 
-	showImage(windowName, img, hScale, wScale, imgWidth, imgHeight);
+	showImage(windowName, ori);
 }
 
 void destroyWindow()
@@ -292,7 +278,15 @@ void destroyWindow()
 
 void drawRegion()
 {
-	Mat tmp = img.clone();
+	Mat tmp;
+	if ((hScale >= wScale && hScale > 1) || (hScale <= wScale && wScale > 1))
+	{
+		tmp = current.clone();
+	}
+	else 
+	{
+		tmp = ori.clone();
+	}
 	int x = startPoint.x, y = startPoint.y, width = endPoint.x - startPoint.x, height = endPoint.y - startPoint.y;
 	// printf("draw x: %d, y:%d, width: %d, height: %d \n", x, y, width, height);
 	rectangle(tmp, Rect(x, y, width, height), Scalar(0,255,0), 2);
@@ -302,7 +296,16 @@ void drawRegion()
 void doRegionDetection()
 {
 	char szErrorMsg[512];
-	tagDLRPoint region[4] = { {startPoint.x, startPoint.y},{endPoint.x, startPoint.y},{endPoint.x, endPoint.y},{startPoint.x, endPoint.y} };
+	double scale = 1.0;
+	if (hScale >= wScale && hScale > 1)
+	{
+		scale = hScale;
+	}
+	else if (hScale <= wScale && wScale > 1)
+	{
+		scale = wScale;
+	}
+	tagDLRPoint region[4] = { {startPoint.x * scale, startPoint.y * scale},{endPoint.x * scale, startPoint.y * scale},{endPoint.x * scale, endPoint.y * scale},{startPoint.x * scale, endPoint.y * scale} };
 	if (SetDetectRegion(dlr, region, szErrorMsg, 512))
 	{
 		printf("\r\nSetDetectRegion Error: %s\r\n", szErrorMsg);
@@ -357,6 +360,7 @@ int main(int argc, const char* argv[])
 
 	while (1)
 	{
+		hScale = 1.0, wScale = 1.0;
 		dlr.ResetRuntimeSettings();
 
 		bExit = GetImagePath(pszImageFile);
@@ -368,14 +372,30 @@ int main(int argc, const char* argv[])
 			break;
 
 		// Read an image
-		img = imread(pszImageFile);
+		ori = imread(pszImageFile);
+		current = ori.clone();
 		// namedWindow(windowName, WINDOW_AUTOSIZE);
 		namedWindow(windowName);
     	setMouseCallback(windowName, onMouse, NULL);
 
+		int imgHeight = ori.rows, imgWidth = ori.cols;
+	
+		if (imgHeight > maxHeight) 
+		{
+			hScale = imgHeight * 1.0 / maxHeight;
+			// thickness = 6;
+		}
+			
+
+		if (imgWidth > maxWidth)
+		{
+			wScale = imgWidth * 1.0 / maxWidth;
+			// thickness = 6;
+		}
+
 		if (!autoRegion)
 		{
-			imshow(windowName, img);
+			showImage(windowName, ori);
 		}
 		else {
 			doOCR();
