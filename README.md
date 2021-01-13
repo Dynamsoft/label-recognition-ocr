@@ -56,7 +56,7 @@ https://www.dynamsoft.com/Company/Contact.aspx
     Release\BarcodeReader license.txt
     ```
 
-    ![label recognition OCR](screenshots/label-recognition-ocr.png)
+    ![label recognition OCR](screenshots/label-recognition-ocr.gif)
 
 ## Linux
 1. Install CMake:
