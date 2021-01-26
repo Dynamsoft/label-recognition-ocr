@@ -93,3 +93,6 @@ https://www.dynamsoft.com/Company/Contact.aspx
     cmake --build . --config release
     Release\BarcodeReader license.txt
     ```
+    
+ ## Blog
+ [Text Recognition with Dynamsoft's OCR SDK](https://www.dynamsoft.com/codepool/label-recognition-ocr-windows-linux.html)
