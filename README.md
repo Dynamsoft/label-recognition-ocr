@@ -53,7 +53,7 @@ https://www.dynamsoft.com/Company/Contact.aspx
 
     ```
     cmake --build . --config release
-    Release\BarcodeReader license.txt
+    Release\LabelRecognition license.txt
     ```
 
     ![label recognition OCR](screenshots/label-recognition-ocr.gif)
@@ -91,7 +91,7 @@ https://www.dynamsoft.com/Company/Contact.aspx
 
     ```
     cmake --build . --config release
-    Release\BarcodeReader license.txt
+    Release\LabelRecognition license.txt
     ```
     
  ## Blog
