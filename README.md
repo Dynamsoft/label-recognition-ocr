@@ -91,7 +91,7 @@ https://www.dynamsoft.com/Company/Contact.aspx
 
     ```
     cmake --build . --config release
-    LabelRecognition license.txt
+    ./LabelRecognition license.txt
     ```
     
  ## Blog
